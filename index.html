@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advocate Case Sheet Generator</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; margin: 40px; color: #333; }
+        .container { max-width: 500px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 50px auto; }
+        h2 { margin-top: 0; color: #1e3a8a; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
+        input[type="file"], input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #1e3a8a; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        button:hover { background: #152e72; }
+        #statusMessage { margin-top: 15px; text-align: center; font-size: 14px; font-weight: bold; line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Legal Case Sheet Generator</h2>
+    <p style="text-align:center; font-size:13px; color:#666; margin-bottom: 25px;">Convert eCourts data into structured daily Excel lists</p>
+    
+    <div class="form-group">
+        <label for="txtFile">1. Upload mycases.txt File</label>
+        <input type="file" id="txtFile" accept=".txt">
+    </div>
+
+    <div class="form-group">
+        <label for="targetDate">2. Select Cause List Date</label>
+        <input type="date" id="targetDate">
+    </div>
+
+    <button onclick="uploadAndGenerate()">Generate & Download Excel</button>
+    <div id="statusMessage"></div>
+</div>
+
+<script>
+function uploadAndGenerate() {
+    const fileInput = document.getElementById('txtFile');
+    const dateInput = document.getElementById('targetDate');
+    const statusDiv = document.getElementById('statusMessage');
+
+    if (!fileInput.files || fileInput.files.length === 0 || !dateInput.value) {
+        statusDiv.style.color = "red";
+        statusDiv.innerText = "Error: Please select both your data file and a valid target date.";
+        return;
+    }
+
+    statusDiv.style.color = "#1e3a8a";
+    statusDiv.innerText = "Reading data payload structure...";
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function(e) {
+        const textContent = e.target.result;
+        statusDiv.innerText = "Processing records with server engine...";
+
+        try {
+            const response = await fetch('/generate-board', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ // FIXED: Standard capitalized global reference
+                    file_content: textContent,
+                    date: dateInput.value
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || "Failed data extraction.");
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `Daily_Board_${dateInput.value}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            statusDiv.style.color = "green";
+            statusDiv.innerText = "Success! Your spreadsheet file has been generated and downloaded.";
+        } catch (error) {
+            statusDiv.style.color = "red";
+            statusDiv.innerText = error.message;
+        }
+    };
+
+    reader.onerror = function() {
+        statusDiv.style.color = "red";
+        statusDiv.innerText = "Error: Failed to read file data from local drive.";
+    };
+
+    reader.readAsText(file);
+}
+</script>
+
+</body>
+</html>
